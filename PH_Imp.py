@@ -2,7 +2,6 @@ import maya.cmds as mc
 import time
 import requests
 import json
-import thread
 from functools import partial
 import hashlib
 import maya.utils as utils
@@ -23,7 +22,8 @@ state = ""
 api_items = {}
 
 class APIItem:
-  def __init__(self, json):
+  def __init__(self, json, key):
+    self.api = key
     self.name = json["name"]
     self.tags = set(json["tags"])
     self.authors = set(json["authors"])
@@ -58,10 +58,11 @@ class APIDatabase:
 class dynamicLoad():
     def deletebuttons(self, wtf):
         print(wtf)
+        global icons
         print(icons)
         for a in icons:
             cmds.deleteUI(a, ctl=True)
-        global icons
+        
         icons = []
     def __init__(self):
         #-- Window
@@ -94,6 +95,8 @@ class dynamicLoad():
         cmds.text( label='Search' )
         self.searchbox = cmds.textField(cc=self.runsearch)
         tagbox = cmds.checkBox("tagbox", label='Tag/Category Search' )
+        cmds.rowLayout(numberOfColumns=1, columnWidth2=(90, 80), p=frame)
+        dispbox = cmds.checkBox("updatebox", label='Displace' )
         scrollLay = cmds.scrollLayout( horizontalScrollBarThickness=32, verticalScrollBarThickness=32, p=frame, cr=True)
         layout = mc.formLayout(w=700)
         
@@ -148,7 +151,7 @@ class dynamicLoad():
         print(Reso)
         print(name)
         #name = 'aerial_asphalt_01'
-        filesrequest = requests.get("https://api.polyhaven.com/files/{0}".format(name))
+        filesrequest = requests.get("https://api.polyhaven.com/files/{0}".format(name.replace(" ", "_")))
         if type == "Textures":
             for tex in vraytextures:
                 print(tex)
@@ -203,6 +206,8 @@ class dynamicLoad():
                         for data in img_data.iter_content(1024):
                             cmds.progressBar(gMainProgressBar, edit=True, step=len(data))
                             f.write(data)
+                else:
+                    print(url)
                 cmds.progressBar(gMainProgressBar, edit=True, endProgress=True)
                 downloadedhash = hashlib.md5(open(filepath,'rb').read()).hexdigest()
                 if remotehash == downloadedhash:
@@ -297,11 +302,13 @@ def grabAllIcons():
     
         if not os.path.exists(path):
             
-            url = "https://cdn.polyhaven.com/asset_img/thumbs/{0}.png?width=125&height=125".format(m)
+            url = "https://cdn.polyhaven.com/asset_img/thumbs/{0}.png?width=125&height=125".format(m.replace(" ", "_"))
             img_data = requests.get(url)
             if img_data.status_code == 200:        
                 with open(path, 'wb') as f:
                     f.write(img_data.content)
+            else:
+                print(url)
         i += 1
     print("Model Icons Done")
     i = 0
@@ -312,11 +319,13 @@ def grabAllIcons():
             print(t)
         if not os.path.exists(path):
             
-            url = "https://cdn.polyhaven.com/asset_img/thumbs/{0}.png?width=125&height=125".format(t)
+            url = "https://cdn.polyhaven.com/asset_img/thumbs/{0}.png?width=125&height=125".format(t.replace(" ", "_"))
             img_data = requests.get(url)
             if img_data.status_code == 200:        
                 with open(path, 'wb') as f:
                     f.write(img_data.content)
+            else:
+                print(url)
         i += 1
     i = 0
     for h in hdri:
@@ -325,11 +334,13 @@ def grabAllIcons():
         if os.path.exists(path):
             print(h)
         if not os.path.exists(path):
-            url = "https://cdn.polyhaven.com/asset_img/thumbs/{0}.png?width=125&height=125".format(h)
+            url = "https://cdn.polyhaven.com/asset_img/thumbs/{0}.png?width=125&height=125".format(h.replace(" ", "_"))
             img_data = requests.get(url)
             if img_data.status_code == 200:        
                 with open(path, 'wb') as f:
                     f.write(img_data.content)
+            else:
+                print(url)
         i += 1
 def getapidata(bools):
     if not os.path.exists(pathBase):
@@ -348,17 +359,16 @@ def getapidata(bools):
         APIJson = json.load(json_file)
     for item in APIJson.items():
         global api_items
-        api_items[item[0]] = APIItem(item[1])
+        print(item[0])
+        api_items[item[0]] = APIItem(item[1], item[0])
     for a in api_items.values():
         if a.type == 0:
-            print(a.name)
-            hdri.append(a.name)
+            hdri.append(a.api)
         if a.type == 1:
-            textures.append(a.name)
+            textures.append(a.api)
         if a.type == 2:
-            models.append(a.name)
-    return
-    if not os.path.exists(PathModels):
+            models.append(a.api)
+    if not os.path.exists(PathModels.replace("'", "").replace(" ", "_").lower()):
         os.makedirs(PathModels)
         print("The new directory is created!")
     if not os.path.exists(PathTextures):
@@ -368,8 +378,6 @@ def getapidata(bools):
         os.makedirs(PathHDRI)
         print("The new directory is created!")
     grabAllIcons()
-    print(models)
-    print(i)
 dynamicLoad()
 def connectPlace2DToFileNode(place2dTextureNode, fileNode):
     cmds.connectAttr ((place2dTextureNode + ".coverage"), (fileNode + ".coverage"))
